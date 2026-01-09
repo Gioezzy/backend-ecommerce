@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 use Laravel\Sanctum\HasApiTokens;
+use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 
@@ -73,8 +74,6 @@ class User extends Authenticatable implements JWTSubject, FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        // Allow all users for now, or you can restrict it:
-        // return str_ends_with($this->email, '@yourdomain.com') && $this->hasVerifiedEmail();
         return true;
     }
 }
