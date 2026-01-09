@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -25,10 +26,16 @@ class ProductItem extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'stock' => 'integer',
-        // 'images' is currently stored as a JSON/String in the migration?
-        // If it's a comma separated string or raw JSON string, we might want an accessor
-        // But for now, let's keep it simple.
     ];
+
+    protected function images(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => str_starts_with($value, 'http')
+                ? $value
+                : asset('storage/' . $value),
+        );
+    }
 
     public function category()
     {
