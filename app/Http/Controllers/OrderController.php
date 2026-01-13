@@ -50,7 +50,10 @@ class OrderController extends Controller
                     'quantity' => $item['quantity'],
                     'price' => $price,
                 ];
+
+                $product->decrement('stock', $item['quantity']);
             }
+
 
             $order = Order::create([
                 'user_id' => $request->user()->id,
@@ -67,11 +70,35 @@ class OrderController extends Controller
                 ]);
             }
 
+            \Midtrans\Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+            \Midtrans\Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
+            \Midtrans\Config::$isSanitized = env('MIDTRANS_IS_SANITIZED', true);
+            \Midtrans\Config::$is3ds = env('MIDTRANS_IS_3DS', true);
+
+            $params = [
+                'transaction_details' => [
+                    'order_id' => $order->id . '-' . time(), 
+                    'gross_amount' => (int) $totalPrice,
+                ],
+                'customer_details' => [
+                    'first_name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                ],
+            ];
+
+            $snapToken = \Midtrans\Snap::getSnapToken($params);
+
+            $order->snap_token = $snapToken;
+            $order->payment_url = "https://app.sandbox.midtrans.com/snap/v2/vtweb/" . $snapToken; 
+            $order->save();
+
             DB::commit();
 
             return response()->json([
                 'message' => 'Order created successfully',
                 'order_id' => $order->id,
+                'snap_token' => $snapToken,
+                'payment_url' => $order->payment_url 
             ], 201);
 
         } catch (\Exception $e) {
