@@ -43,6 +43,11 @@ class OrderController extends Controller
                 }
 
                 $price = $product->price;
+                
+                if ($product->promo && $product->promo > 0 && $product->promo < $product->price) {
+                    $price = $product->promo;
+                }
+
                 $totalPrice += $price * $item['quantity'];
 
                 $orderItemsData[] = [

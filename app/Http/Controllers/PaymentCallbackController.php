@@ -39,18 +39,21 @@ class PaymentCallbackController extends Controller
 
             if ($transactionStatus == 'capture') {
                 if ($fraudStatus == 'challenge') {
-                    $order->update(['status' => 'PENDING']);
+                    $order->update(['payment_status' => 'challenge']);
                 } else if ($fraudStatus == 'accept') {
-                    $order->update(['status' => 'PAID']);
+                    $order->update(['payment_status' => 'paid']);
                 }
             } else if ($transactionStatus == 'settlement') {
-                $order->update(['status' => 'PAID']);
+                $order->update(['payment_status' => 'paid']);
             } else if ($transactionStatus == 'cancel' ||
               $transactionStatus == 'deny' ||
               $transactionStatus == 'expire') {
-                $order->update(['status' => 'CANCELLED']);
+                $order->update([
+                    'payment_status' => 'failed',
+                    'status' => 'Cancelled' // Standardize to 'Cancelled'
+                ]);
             } else if ($transactionStatus == 'pending') {
-                $order->update(['status' => 'PENDING']);
+                $order->update(['payment_status' => 'pending']);
             }
 
             return response()->json(['message' => 'Callback received successfully']);

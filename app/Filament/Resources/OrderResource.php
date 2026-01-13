@@ -31,6 +31,17 @@ class OrderResource extends Resource
                     ->numeric()
                     ->prefix('Rp')
                     ->disabled(),
+                Forms\Components\Select::make('payment_status')
+                    ->options([
+                        'unpaid' => 'Unpaid',
+                        'pending' => 'Pending',
+                        'paid' => 'Paid',
+                        'challenge' => 'Challenge',
+                        'failed' => 'Failed',
+                        'expired' => 'Expired',
+                    ])
+                    ->default('unpaid')
+                    ->required(),
                 Forms\Components\Select::make('status')
                     ->options([
                         'PENDING' => 'Pending',
@@ -53,6 +64,16 @@ class OrderResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total_price')
                     ->money('IDR')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('payment_status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'paid' => 'success',
+                        'pending' => 'warning',
+                        'unpaid' => 'gray',
+                        'failed', 'expired' => 'danger',
+                        default => 'info',
+                    })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
