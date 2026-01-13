@@ -80,6 +80,8 @@ class OrderController extends Controller
             \Midtrans\Config::$isSanitized = env('MIDTRANS_IS_SANITIZED', true);
             \Midtrans\Config::$is3ds = env('MIDTRANS_IS_3DS', true);
 
+            $isProduction = config('app.midtrans_is_production') ?? env('MIDTRANS_IS_PRODUCTION', false);
+
             $params = [
                 'transaction_details' => [
                     'order_id' => $order->id . '-' . time(), 
@@ -89,13 +91,19 @@ class OrderController extends Controller
                     'first_name' => $request->user()->name,
                     'email' => $request->user()->email,
                 ],
-                'notification_url' => [url('/api/midtrans-callback')],
+                // Use APP_URL from env to ensure correct schema (https) and host.
+                // Fallback to url() if APP_URL is not set, but expected to be set in Prod.
+                'notification_url' => [env('APP_URL') . '/api/midtrans-callback'],
             ];
 
             $snapToken = \Midtrans\Snap::getSnapToken($params);
 
             $order->snap_token = $snapToken;
-            $order->payment_url = "https://app.sandbox.midtrans.com/snap/v2/vtweb/" . $snapToken; 
+            if ($isProduction) {
+                $order->payment_url = "https://app.midtrans.com/snap/v2/vtweb/" . $snapToken;
+            } else {
+                $order->payment_url = "https://app.sandbox.midtrans.com/snap/v2/vtweb/" . $snapToken;
+            }
             $order->save();
 
             DB::commit();
