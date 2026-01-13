@@ -11,23 +11,29 @@ class PaymentCallbackController extends Controller
     public function receive(Request $request)
     {
         try {
-            $serverKey = config('app.midtrans_server_key') ?? env('MIDTRANS_SERVER_KEY');
-            
+            $serverKey = config('services.midtrans.server_key');
+
             $notif = $request->all();
+            Log::info('Midtrans Notification', $notif);
 
-            Log::info('Midtrans Notification:', $notif);
+            $orderId = $notif['order_id'] ?? null;
+            $transactionStatus = $notif['transaction_status'] ?? null;
+            $fraudStatus = $notif['fraud_status'] ?? null;
 
-            $transactionStatus = $notif['transaction_status'];
-            $type = $notif['payment_type'];
-            $orderId = $notif['order_id'];
-            $fraudStatus = $notif['fraud_status'];
+            if (!$orderId) {
+                return response()->json(['message' => 'Invalid payload'], 400);
+            }
 
-            $input = $orderId . $notif['status_code'] . $notif['gross_amount'] . $serverKey;
-            $signature = openssl_digest($input, 'sha512');
+            $signature = hash(
+                'sha512',
+                $orderId .
+                $notif['status_code'] .
+                $notif['gross_amount'] .
+                $serverKey
+            );
 
-            if ($signature != $notif['signature_key']) {
-                Log::warning('Midtrans Invalid Signature: ' . $orderId);
-                return response()->json(['message' => 'Invalid Signature'], 403);
+            if (!hash_equals($signature, $notif['signature_key'])) {
+                return response()->json(['message' => 'Invalid signature'], 403);
             }
 
             $realOrderId = explode('-', $orderId)[0];
@@ -37,30 +43,25 @@ class PaymentCallbackController extends Controller
                 return response()->json(['message' => 'Order not found'], 404);
             }
 
-            if ($transactionStatus == 'capture') {
-                if ($fraudStatus == 'challenge') {
-                    $order->update(['payment_status' => 'challenge']);
-                } else if ($fraudStatus == 'accept') {
-                    $order->update(['payment_status' => 'paid']);
-                }
-            } else if ($transactionStatus == 'settlement') {
-                $order->update(['payment_status' => 'paid']);
-            } else if ($transactionStatus == 'cancel' ||
-              $transactionStatus == 'deny' ||
-              $transactionStatus == 'expire') {
-                $order->update([
+            match ($transactionStatus) {
+                'capture', 'settlement' => $order->update(['payment_status' => 'paid']),
+                'pending' => $order->update(['payment_status' => 'pending']),
+                'cancel', 'deny', 'expire' => $order->update([
                     'payment_status' => 'failed',
-                    'status' => 'Cancelled' // Standardize to 'Cancelled'
-                ]);
-            } else if ($transactionStatus == 'pending') {
-                $order->update(['payment_status' => 'pending']);
-            }
+                    'status' => 'Cancelled',
+                ]),
+                default => null,
+            };
 
-            return response()->json(['message' => 'Callback received successfully']);
+            return response()->json(['message' => 'OK']);
 
-        } catch (\Exception $e) {
-            Log::error('Midtrans Callback Error: ' . $e->getMessage());
-            return response()->json(['message' => 'Error processing callback'], 500);
+        } catch (\Throwable $e) {
+            Log::error('Midtrans Callback Error', [
+                'error' => $e->getMessage(),
+                'payload' => $request->all(),
+            ]);
+
+            return response()->json(['message' => 'Internal error'], 500);
         }
     }
 }
