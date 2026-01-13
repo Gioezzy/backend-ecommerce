@@ -84,6 +84,7 @@ class OrderController extends Controller
                     'first_name' => $request->user()->name,
                     'email' => $request->user()->email,
                 ],
+                'notification_url' => [url('/api/midtrans-callback')],
             ];
 
             $snapToken = \Midtrans\Snap::getSnapToken($params);
